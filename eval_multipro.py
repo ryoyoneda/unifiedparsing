@@ -4,7 +4,7 @@ from tqdm import tqdm
 import datetime
 import argparse
 from distutils.version import LooseVersion
-from multiprocessing import Queue, Process
+#from multiprocessing import Queue, Process
 # Numerical libs
 import numpy as np
 import math
@@ -12,6 +12,10 @@ import torch
 import cv2
 import torch.nn as nn
 from scipy.io import loadmat
+import torch.multiprocessing as mp
+from torch.multiprocessing import Queue, Process
+mp.set_start_method('spawn', force=True)
+
 # Our libs
 from dataset import ValDataset
 from models import ModelBuilder, SegmentationModule
