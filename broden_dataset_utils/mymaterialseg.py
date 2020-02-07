@@ -74,10 +74,11 @@ class MyMaterialSegmentation(AbstractSegmentation):
     @classmethod
     def resolve_segmentation(cls, m, categories=None):
         img = numpy.asarray(PIL.Image.open(m['seg_filename']))
+        result_img = numpy.zeros(img.shape)
         for _from, _to in m['label_map'].items():
-            img = numpy.where(img == _from, _to, img)
-        result = { 'material': img }
-        return result, img.shape
+            result_img += numpy.where(img == _from, _to, 0)
+        result = { 'material': result_img }
+        return result, result_img.shape
 
     def validation_dataset(self):
         """short-cut method to return validation dataset"""
