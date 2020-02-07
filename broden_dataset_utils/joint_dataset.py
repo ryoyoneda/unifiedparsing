@@ -62,7 +62,7 @@ class BrodenDataset:
         self.record_list['validation'] = \
                 get_records(os.path.join(self.broden_dataset_info, "broden_ade20k_pascal_val.json")) + \
                 get_records(os.path.join(self.broden_dataset_info, 'broden_os_val.json'))
-        self.record_list['validation_my_material'] = my_material.validation_dataset
+        self.record_list['validation_my_material'] = my_material.validation_dataset()
 
 
         """ recover object, part, scene, material and texture. """
