@@ -35,7 +35,7 @@ class MyMaterialSegmentation(AbstractSegmentation):
                 "data_dir": d
             })
             self.material_dict = {}
-            with open("./meta_file/material.csv") as f:
+            with open("./meta_file/joint_dataset/material.csv") as f:
                 reader = csv.reader(f)
                 for row in reader:
                     label = int(row[0])
