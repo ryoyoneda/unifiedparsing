@@ -12,6 +12,7 @@ from . import adeseg
 from . import dtdseg
 from . import osseg
 from . import pascalseg
+from . import mymaterialseg
 
 
 class BrodenDataset:
@@ -43,11 +44,17 @@ class BrodenDataset:
         opensurface = osseg.OpenSurfaceSegmentation(
             directory=os.path.join(broden_dataset_root, "opensurfaces"))
 
-        self.data_sets = OrderedDict(ade20k=ade, pascal=pascal, os=opensurface)
+        # Dataset 5:    original. material dtaset.
+        #               use resized blank removed version. 
+        my_material = mymaterialseg.MyMaterialSegmentation(
+            directory="./my_material_dataset"
+        )
+
+        self.data_sets = OrderedDict(ade20k=ade, pascal=pascal, os=opensurface, my_material=my_material)
 
         """ use multi source dataset """
         self.broden_dataset_info = "./meta_file/joint_dataset"
-        self.record_list = {"train": [], "validation": []}
+        self.record_list = {"train": [], "validation": [], "validation_my_material": []}
         self.record_list['train'].append(get_records(
             os.path.join(self.broden_dataset_info, "broden_ade20k_pascal_train.json")))
         self.record_list['train'].append(get_records(
@@ -55,6 +62,8 @@ class BrodenDataset:
         self.record_list['validation'] = \
                 get_records(os.path.join(self.broden_dataset_info, "broden_ade20k_pascal_val.json")) + \
                 get_records(os.path.join(self.broden_dataset_info, 'broden_os_val.json'))
+        self.record_list['validation_my_material'] = my_material.validation_dataset
+
 
         """ recover object, part, scene, material and texture. """
 
@@ -211,6 +220,26 @@ class BrodenDataset:
             }
 
             return data
+
+        # original dataset
+        elif record['dataset'] == 'my_material':
+            valid_mat = 1
+            seg_material = full_seg['material']
+            seg_material = numpy.asarray(seg_material, dtype=numpy.uint8)
+
+            data = {
+                "img": img,
+                "seg_obj": seg_obj,
+                "valid_obj": valid_obj,
+                "batch_seg_part": batch_seg_part,
+                "valid_part": valid_part,
+                "scene_label": scene_label,
+                "seg_material": seg_material,
+                "valid_mat": valid_mat
+            }
+
+            return data
+
         else:
             raise ValueError('invalid dataset name. ')
 
