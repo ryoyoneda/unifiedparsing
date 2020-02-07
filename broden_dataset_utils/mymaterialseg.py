@@ -75,7 +75,7 @@ class MyMaterialSegmentation(AbstractSegmentation):
     def resolve_segmentation(cls, m, categories=None):
         img = numpy.asarray(PIL.Image.open(m['seg_filename']))
         for _from, _to in m['label_map'].items():
-            img = img.where(a == _from, _to, a)
+            img = numpy.where(img == _from, _to, img)
         result = { 'material': img }
         return result, img.shape
 
