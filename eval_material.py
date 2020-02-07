@@ -55,7 +55,7 @@ def evaluate(segmentation_module, loader, args, dev_id, result_queue):
 
         with torch.no_grad():
             pred_ms = {}
-            for k in ['object', 'material']:
+            for k in ['material']:
                 pred_ms[k] = torch.zeros(1, args.nr_classes[k], *seg_size)
 
             for img in data_torch['img_resized_list']:

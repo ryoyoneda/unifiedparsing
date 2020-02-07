@@ -4,6 +4,7 @@ import csv
 import numpy
 import json
 from scipy.misc import imread
+import PIL.Image
 
 from .loadseg import AbstractSegmentation
 
@@ -27,12 +28,18 @@ class MyMaterialSegmentation(AbstractSegmentation):
                 data_meta = json.load(f)
                 height = data_meta["imageHeight"]
                 width = data_meta["imageWidth"]
+            with open(os.path.join(d, "label_names.txt")) as f:
+                next(f) # skip header
+                label_map = dict()
+                for i, line in enumerate(f):
+                    label_map[i + 1] = int(line)
             self.info_list.append({
                 "dataset": "my_material",
                 "file_index": i,
                 "height": height,
                 "width": width,
-                "data_dir": d
+                "data_dir": d,
+                "label_map": label_map
             })
             self.material_dict = {}
             with open("./meta_file/joint_dataset/material.csv") as f:
@@ -61,17 +68,16 @@ class MyMaterialSegmentation(AbstractSegmentation):
         """Returns an object that can be used to create all segmentations."""
         return dict(
             filename=os.path.join(self.info_list[i]["data_dir"], "image.jpg"),
-            seg_filename=os.path.join(self.info_list[i]["data_dir"], "label.png"))
+            seg_filename=os.path.join(self.info_list[i]["data_dir"], "label.png"),
+            label_map=self.info_list[i]["label_map"])
 
     @classmethod
     def resolve_segmentation(cls, m, categories=None):
-        result = {}
-        if wants('material', categories):
-            labels = imread(m['seg_filename'])
-            result['material'] = labels[:, :, 0]
-        arrs = [a for a in list(result.values()) if len(numpy.shape(a)) >= 2]
-        shape = arrs[0].shape[-2:] if arrs else (1, 1)
-        return result, shape
+        img = numpy.asarray(PIL.Image.open(m['seg_filename']))
+        for _from, _to in m['label_map'].items():
+            img = img.where(a == _from, _to, a)
+        result = { 'material': img }
+        return result, img.shape
 
     def validation_dataset(self):
         """short-cut method to return validation dataset"""
