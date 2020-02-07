@@ -45,7 +45,9 @@ def get_metrics(pred, data):
     return metric
 
 
-def evaluate(segmentation_module, loader, args, dev_id, result_queue):
+def evaluate(segmentation_module, loader, args):
+    dev_id = -1
+
     segmentation_module.eval()
 
     for i, data_torch in enumerate(loader):
@@ -71,7 +73,7 @@ def evaluate(segmentation_module, loader, args, dev_id, result_queue):
             pred_ms = as_numpy(pred_ms)
 
         # calculate accuracy and SEND THEM TO MASTER
-        result_queue.put_nowait(get_metrics(pred_ms, data_np))
+        return get_metrics(pred_ms, data_np)
 
 
 def worker(args, dev_id, start_idx, end_idx, result_queue):
@@ -127,39 +129,73 @@ def get_benchmark_result(result):
 
 
 def main(args):
-    # Parse device ids
-    default_dev, *parallel_dev = parse_devices(args.devices)
-    all_devs = parallel_dev + [default_dev]
-    all_devs = [int(x.replace('gpu', '')) for x in all_devs]
-    nr_devs = len(all_devs)
+    # # Parse device ids
+    # default_dev, *parallel_dev = parse_devices(args.devices)
+    # all_devs = parallel_dev + [default_dev]
+    # all_devs = [int(x.replace('gpu', '')) for x in all_devs]
+    # nr_devs = len(all_devs)
 
-    print("nr_dev: {}".format(nr_devs))
+    # print("nr_dev: {}".format(nr_devs))
 
-    nr_files = len(broden_dataset.record_list['validation_my_material'])
-    if args.num_val > 0:
-        nr_files = min(nr_files, args.num_val)
-    nr_files_per_dev = math.ceil(nr_files / nr_devs)
+    # nr_files = len(broden_dataset.record_list['validation_my_material'])
+    # if args.num_val > 0:
+    #     nr_files = min(nr_files, args.num_val)
+    # nr_files_per_dev = math.ceil(nr_files / nr_devs)
 
-    pbar = tqdm(total=nr_files)
+    # pbar = tqdm(total=nr_files)
 
-    result_queue = Queue(5)
-    procs = []
-    for dev_id in range(nr_devs):
-        start_idx = dev_id * nr_files_per_dev
-        end_idx = min(start_idx + nr_files_per_dev, nr_files)
-        proc = Process(target=worker, args=(args, dev_id, start_idx, end_idx, result_queue))
-        print('process:%d, start_idx:%d, end_idx:%d' % (dev_id, start_idx, end_idx))
-        proc.start()
-        procs.append(proc)
+    # result_queue = Queue(5)
+    # procs = []
+    # for dev_id in range(nr_devs):
+    #     start_idx = dev_id * nr_files_per_dev
+    #     end_idx = min(start_idx + nr_files_per_dev, nr_files)
+    #     proc = Process(target=worker, args=(args, dev_id, start_idx, end_idx, result_queue))
+    #     print('process:%d, start_idx:%d, end_idx:%d' % (dev_id, start_idx, end_idx))
+    #     proc.start()
+    #     procs.append(proc)
 
-    # master fetches results
-    all_result = []
-    for i in range(nr_files):
-        all_result.append(result_queue.get())
-        pbar.update(1)
+    # # master fetches results
+    # all_result = []
+    # for i in range(nr_files):
+    #     all_result.append(result_queue.get())
+    #     pbar.update(1)
 
-    for p in procs:
-        p.join()
+    # for p in procs:
+    #     p.join()
+    ###
+    torch.cuda.set_device(args.gpu_id)
+
+    # Dataset and Loader
+    dataset_val = ValDataset(
+        broden_dataset.record_list['validation_my_material'], args
+    )
+    loader_val = torchdata.DataLoader(
+        dataset_val,
+        batch_size=args.batch_size,
+        shuffle=False,
+        collate_fn=user_scattered_collate,
+        num_workers=2)
+
+    # Network Builders
+    builder = ModelBuilder()
+    net_encoder = builder.build_encoder(
+        arch=args.arch_encoder,
+        fc_dim=args.fc_dim,
+        weights=args.weights_encoder)
+    net_decoder = builder.build_decoder(
+        arch=args.arch_decoder,
+        fc_dim=args.fc_dim,
+        nr_classes=args.nr_classes,
+        weights=args.weights_decoder,
+        use_softmax=True)
+
+    segmentation_module = SegmentationModule(net_encoder, net_decoder)
+
+    segmentation_module.cuda()
+
+    # Main loop
+    all_result = evaluate(segmentation_module, loader_val, args)
+    ###
 
     benchmark = get_benchmark_result(all_result)
 
@@ -214,7 +250,7 @@ if __name__ == '__main__':
                         help='output visualization?')
     parser.add_argument('--result', default='./result',
                         help='folder to output visualization results')
-    parser.add_argument('--devices', default='gpu0',
+    parser.add_argument('--gpu_id', default=0, type=int,
                         help='gpu_id for evaluation')
 
     args = parser.parse_args()
